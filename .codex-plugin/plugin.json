@@ -1,0 +1,39 @@
+{
+  "name": "fast-jev-compaction-codex",
+  "version": "0.3.0+codex.20260919-1",
+  "description": "Verbatim Jev-guided transcript compaction for Codex workflows, with selective tool-call and tool-result pruning.",
+  "author": {
+    "name": "Tylerbuilds",
+    "url": "https://github.com/tylerbuilds"
+  },
+  "homepage": "https://github.com/tylerbuilds/fast-jev-compaction-codex",
+  "repository": "https://github.com/tylerbuilds/fast-jev-compaction-codex",
+  "license": "MIT",
+  "keywords": [
+    "compaction",
+    "context",
+    "jev",
+    "transcript",
+    "tool-results",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Fast Jev Compaction",
+    "shortDescription": "Preserve useful transcript context while pruning stale tool output",
+    "longDescription": "Use Jev to score tool calls and tool results in a supplied transcript. User and assistant text remains verbatim; stale calls can be removed and stale results can be truncated. The Codex plugin exposes this as an explicit MCP tool and does not claim to replace Codex's private automatic compaction path.",
+    "developerName": "Tylerbuilds",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "websiteURL": "https://github.com/tylerbuilds/fast-jev-compaction-codex",
+    "defaultPrompt": [
+      "Compact this transcript while preserving user and assistant text verbatim",
+      "Prune stale tool results from this saved conversation safely"
+    ],
+    "brandColor": "#6D5EF8"
+  }
+}

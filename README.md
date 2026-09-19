@@ -1,9 +1,15 @@
 # fast-jev-compaction
 
-Claude Code plugin that replaces the compaction summary with Jev decisions:
+Jev-guided context compaction that keeps useful transcript content verbatim:
 every tool call and result is scored in one fast request, stale ones are
 dropped or truncated, everything kept stays verbatim. Also usable as an npm
-library.
+library, a Claude Code plugin, and a Codex plugin.
+
+The `tylerbuilds/fast-jev-compaction-codex` fork adds a Codex personal plugin
+manifest, a discoverable skill, and the `fast_jev_compaction_compact` MCP tool.
+Codex currently does not expose a supported hook for replacing its private
+automatic compaction path, so the Codex surface compacts a transcript supplied
+explicitly by the workflow and does not pretend to intercept host compaction.
 
 ## What and why
 
@@ -16,7 +22,8 @@ in order.
 
 The repository is both an npm package (`src/`) and a Claude Code plugin
 (`hooks/`, `.claude-plugin/`) that uses the package to replace Claude Code's
-built-in compaction summary with the original messages.
+built-in compaction summary with the original messages. The Codex extension
+lives in `.codex-plugin/`, `skills/`, `.mcp.json`, and `mcp/`.
 
 ## How it works
 
@@ -162,6 +169,23 @@ To run from a checkout without installing: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 
 from the repository root. No publishing step is required; the marketplace is
 just the repo's `.claude-plugin/marketplace.json`.
 
+## Codex plugin
+
+The fork is installable as a local Codex personal plugin. Its MCP server
+exposes one tool, `fast_jev_compaction_compact`, which accepts the same
+`Message[]` shape used by the library and returns compacted messages, Jev
+decisions, and reduction statistics.
+
+The tool requires `TYPESAFE_API_KEY` in the plugin process environment and a
+per-call `confirmExternalTransmission: true`. That flag is an explicit guard:
+the transcript's task text and tool inputs are sent to TypeSafe's Jev endpoint.
+Never send credentials, tokens, cookies, or other sensitive material without
+specific approval. The API key is never accepted as a tool argument.
+
+The Codex skill routes explicit transcript-compaction requests to the MCP tool.
+It does not replace Codex's internal automatic compaction, because Codex does
+not currently expose that lifecycle hook to plugins.
+
 ## Development
 
 ```sh
@@ -172,6 +196,10 @@ npm run build
 npm run validate:plugin  # claude plugin validate
 TYPESAFE_API_KEY="$(cat ~/.typesafe_key)" npm run demo
 ```
+
+`npm run build` produces the JavaScript runtime used by the Codex MCP server in
+`mcp/fast-jev-server.mjs`; the generated `dist/*.js` files are included in the
+Codex fork so a local plugin install does not need to compile TypeScript first.
 
 The unit tests use a fake Jev and never contact TypeSafe. The demo is the live
 network check.

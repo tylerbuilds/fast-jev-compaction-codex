@@ -1,4 +1,5 @@
 node_modules
-dist
+dist/*
+!dist/*.js
 .env
 demo/JevDemo/build
