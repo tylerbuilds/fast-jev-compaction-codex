@@ -403,11 +403,28 @@ describe('HTTP client', () => {
     });
   });
 
+  it('builds a Cloudflare Workers AI request', () => {
+    const request = buildJevRequest(
+      { apiKey: 'k', provider: 'cloudflare', accountId: 'account' },
+      { a: 1 },
+      { q: { type: 'noul', instructions: 'x' } },
+    );
+    expect(request.url).toBe('https://api.cloudflare.com/client/v4/accounts/account/ai/run');
+    expect(JSON.parse(request.body)).toEqual({
+      model: 'typesafe/jev',
+      input: {
+        state: { a: 1 },
+        questions: { q: { type: 'noul', instructions: 'x' } },
+      },
+    });
+  });
+
   it('rejects failed and malformed responses', () => {
     expect(() => parseJevResponse(500, false, 'boom')).toThrow(/500/);
     expect(() => parseJevResponse(200, true, 'not json')).toThrow(/malformed/);
     expect(() => parseJevResponse(200, true, '{}')).toThrow(/missing answers/);
     expect(parseJevResponse(200, true, '{"answers":{}}')).toEqual({ answers: {} });
+    expect(parseJevResponse(200, true, '{"success":true,"result":{"answers":{}}}')).toEqual({ answers: {} });
   });
 
   it('asks over fetch and refuses to run without a key', async () => {
@@ -429,5 +446,8 @@ describe('HTTP client', () => {
     await expect(
       compactMessages(transcript(), { apiKey: '', preserveRecentMessages: 1 }),
     ).rejects.toThrow(/TYPESAFE_API_KEY/);
+
+    const cloudflareKeyless = new JevClient({ provider: 'cloudflare', apiKey: '' });
+    await expect(cloudflareKeyless.ask('s', {})).rejects.toThrow(/CLOUDFLARE_API_TOKEN/);
   });
 });

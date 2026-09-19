@@ -7,6 +7,10 @@
       ],
       "cwd": ".",
       "env_vars": [
+        "FAST_JEV_PROVIDER",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "FAST_JEV_WRANGLER_COMMAND",
         "TYPESAFE_API_KEY"
       ],
       "startup_timeout_sec": 10,

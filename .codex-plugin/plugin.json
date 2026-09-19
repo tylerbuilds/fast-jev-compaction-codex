@@ -1,7 +1,7 @@
 {
   "name": "fast-jev-compaction-codex",
-  "version": "0.3.0+codex.20260919-1",
-  "description": "Verbatim Jev-guided transcript compaction for Codex workflows, with selective tool-call and tool-result pruning.",
+  "version": "0.3.0+codex.20260919184506",
+  "description": "Cloudflare-hosted Jev evaluation and verbatim transcript compaction for Codex workflows.",
   "author": {
     "name": "Tylerbuilds",
     "url": "https://github.com/tylerbuilds"
@@ -21,8 +21,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Fast Jev Compaction",
-    "shortDescription": "Preserve useful transcript context while pruning stale tool output",
-    "longDescription": "Use Jev to score tool calls and tool results in a supplied transcript. User and assistant text remains verbatim; stale calls can be removed and stale results can be truncated. The Codex plugin exposes this as an explicit MCP tool and does not claim to replace Codex's private automatic compaction path.",
+    "shortDescription": "Structured Jev evaluation and safe transcript compaction through Cloudflare",
+    "longDescription": "Use Cloudflare-hosted Jev for typed workflow judgements and to score tool calls and tool results in a supplied transcript. User and assistant text remains verbatim; stale calls can be removed and stale results can be truncated. The plugin uses existing Wrangler authentication when explicit Cloudflare credentials are absent.",
     "developerName": "Tylerbuilds",
     "category": "Developer Tools",
     "capabilities": [
@@ -31,6 +31,7 @@
     ],
     "websiteURL": "https://github.com/tylerbuilds/fast-jev-compaction-codex",
     "defaultPrompt": [
+      "Evaluate this state with Jev using typed questions",
       "Compact this transcript while preserving user and assistant text verbatim",
       "Prune stale tool results from this saved conversation safely"
     ],

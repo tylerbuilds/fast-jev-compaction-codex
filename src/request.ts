@@ -2,6 +2,10 @@ import type { JevAnswer, JevQuestions, JevResponse, JevState } from './types.js'
 
 export const SYSTEM_ONE_URL = 'https://api.typesafe.ai/v1/systemone';
 export const DEFAULT_MODEL = 'jev-latest';
+export const CLOUDFLARE_AI_URL = 'https://api.cloudflare.com/client/v4/accounts';
+export const CLOUDFLARE_JEV_MODEL = 'typesafe/jev';
+
+export type JevProvider = 'typesafe' | 'cloudflare';
 
 export interface JevRequest {
   url: string;
@@ -14,12 +18,30 @@ export interface JevRequest {
 export function buildJevRequest(
   params: {
     apiKey: string;
+    provider?: JevProvider;
+    accountId?: string;
     model?: string;
     baseUrl?: string;
   },
   state: JevState,
   questions: JevQuestions,
 ): JevRequest {
+  const provider = params.provider ?? 'typesafe';
+  if (provider === 'cloudflare') {
+    if (!params.accountId) throw new Error('CLOUDFLARE_ACCOUNT_ID is not configured');
+    return {
+      url: params.baseUrl ?? `${CLOUDFLARE_AI_URL}/${params.accountId}/ai/run`,
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${params.apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: params.model ?? CLOUDFLARE_JEV_MODEL,
+        input: { state, questions },
+      }),
+    };
+  }
   return {
     url: params.baseUrl ?? SYSTEM_ONE_URL,
     method: 'POST',
@@ -50,16 +72,24 @@ export function parseJevResponse(
   } catch {
     throw new Error('Jev returned malformed JSON');
   }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error('Jev response is missing answers');
+  }
+  const candidate =
+    'answers' in parsed
+      ? parsed
+      : 'result' in parsed && parsed.result !== null && typeof parsed.result === 'object'
+        ? parsed.result
+        : undefined;
   if (
-    parsed === null ||
-    typeof parsed !== 'object' ||
-    !('answers' in parsed) ||
-    parsed.answers === null ||
-    typeof parsed.answers !== 'object'
+    !candidate ||
+    !('answers' in candidate) ||
+    candidate.answers === null ||
+    typeof candidate.answers !== 'object'
   ) {
     throw new Error('Jev response is missing answers');
   }
-  return parsed as JevResponse;
+  return candidate as JevResponse;
 }
 
 /** The `noul` probability of one answer; throws when it is not there. */

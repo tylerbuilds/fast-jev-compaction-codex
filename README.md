@@ -6,7 +6,10 @@ dropped or truncated, everything kept stays verbatim. Also usable as an npm
 library, a Claude Code plugin, and a Codex plugin.
 
 The `tylerbuilds/fast-jev-compaction-codex` fork adds a Codex personal plugin
-manifest, a discoverable skill, and the `fast_jev_compaction_compact` MCP tool.
+manifest, discoverable skills, the general `jev_evaluate` MCP tool, and the
+`fast_jev_compaction_compact` MCP tool. Both use Cloudflare Workers AI by
+default and can reuse an existing Wrangler login without storing another API
+key.
 Codex currently does not expose a supported hook for replacing its private
 automatic compaction path, so the Codex surface compacts a transcript supplied
 explicitly by the workflow and does not pretend to intercept host compaction.
@@ -100,16 +103,21 @@ method) and call `compact(messages, asker, options)`; `buildJevRequest` and
 The building blocks (`collectToolCalls`, `fitState`, `batchCalls`,
 `decideCall`, `applyDecisions`) are exported too.
 
-`apiKey` defaults to `process.env.TYPESAFE_API_KEY`. Never commit the key or
-put it in a source file.
+`JevClient` supports either the direct TypeSafe endpoint or Cloudflare Workers
+AI. For Cloudflare library use, select `provider: 'cloudflare'` and supply
+`CLOUDFLARE_API_TOKEN` plus `CLOUDFLARE_ACCOUNT_ID` through the environment.
+Never commit either credential or put it in a source file. The Codex MCP server
+can instead read the current Wrangler OAuth session in memory.
 
 ## Options
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `apiKey` | `TYPESAFE_API_KEY` | TypeSafe API key (`compactMessages`/`JevClient`) |
-| `model` | `jev-latest` | Jev model name |
-| `baseUrl` | `https://api.typesafe.ai/v1/systemone` | System One endpoint |
+| `provider` | `typesafe` | `typesafe` or `cloudflare`; the Codex MCP server defaults to `cloudflare` |
+| `apiKey` | provider environment variable | `TYPESAFE_API_KEY` or `CLOUDFLARE_API_TOKEN` |
+| `accountId` | `CLOUDFLARE_ACCOUNT_ID` | Required by the Cloudflare REST API |
+| `model` | provider default | `jev-latest` or `typesafe/jev` |
+| `baseUrl` | provider endpoint | Optional endpoint override |
 | `fetch` | native `fetch` | Injectable fetch implementation for tests |
 | `goal` | last 3 user prompts | Ongoing task description included in the state |
 | `keepThreshold` | `0.5` | Minimum keep probability for a call or result to stay |
@@ -171,16 +179,19 @@ just the repo's `.claude-plugin/marketplace.json`.
 
 ## Codex plugin
 
-The fork is installable as a local Codex personal plugin. Its MCP server
-exposes one tool, `fast_jev_compaction_compact`, which accepts the same
-`Message[]` shape used by the library and returns compacted messages, Jev
-decisions, and reduction statistics.
+The fork is installable as a local Codex personal plugin. Its MCP server exposes
+`jev_evaluate` for typed noul, choice, and score questions, plus
+`fast_jev_compaction_compact`, which accepts the same `Message[]` shape used by
+the library and returns compacted messages, Jev decisions, and reduction
+statistics.
 
-The tool requires `TYPESAFE_API_KEY` in the plugin process environment and a
-per-call `confirmExternalTransmission: true`. That flag is an explicit guard:
-the transcript's task text and tool inputs are sent to TypeSafe's Jev endpoint.
-Never send credentials, tokens, cookies, or other sensitive material without
-specific approval. The API key is never accepted as a tool argument.
+The server defaults to Cloudflare Workers AI and uses `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` when supplied. Otherwise it obtains the current token
+and account from `wrangler auth token --json` and `wrangler whoami --json` in
+memory. Set `FAST_JEV_PROVIDER=typesafe` to retain the direct TypeSafe route.
+Every tool call requires `confirmExternalTransmission: true`; never send
+credentials, tokens, cookies, or other sensitive material without specific
+approval. Credentials are never accepted as tool arguments.
 
 The Codex skill routes explicit transcript-compaction requests to the MCP tool.
 It does not replace Codex's internal automatic compaction, because Codex does

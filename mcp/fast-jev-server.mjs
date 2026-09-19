@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { compact, JevClient } from '../dist/index.js';
 
-const TOOL_NAME = 'fast_jev_compaction_compact';
+const execFileAsync = promisify(execFile);
+const COMPACT_TOOL_NAME = 'fast_jev_compaction_compact';
+const EVALUATE_TOOL_NAME = 'jev_evaluate';
 const PROTOCOL_VERSION = '2024-11-05';
 
-const toolDefinition = {
-  name: TOOL_NAME,
+const compactToolDefinition = {
+  name: COMPACT_TOOL_NAME,
   description:
-    'Compact a supplied transcript with TypeSafe Jev. User and assistant text stays verbatim; stale tool calls can be removed and stale tool results can be truncated. This sends task text and tool inputs to the configured external Jev endpoint.',
+    'Compact a supplied transcript with Jev. User and assistant text stays verbatim; stale tool calls can be removed and stale tool results can be truncated. This sends task text and tool inputs to the configured external Jev provider.',
   inputSchema: {
     type: 'object',
     additionalProperties: false,
@@ -22,7 +26,7 @@ const toolDefinition = {
       confirmExternalTransmission: {
         type: 'boolean',
         description:
-          'Must be true only after the user has authorised sending this transcript to TypeSafe Jev.',
+          'Must be true only after the user has authorised sending this transcript to the configured external Jev provider.',
       },
       goal: { type: 'string' },
       model: { type: 'string' },
@@ -34,6 +38,98 @@ const toolDefinition = {
     },
   },
 };
+
+const evaluateToolDefinition = {
+  name: EVALUATE_TOOL_NAME,
+  description:
+    'Evaluate JSON-serialisable state with Jev using typed noul, choice, or score questions. Useful for consistent triage, classification, scoring, and workflow decisions.',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'questions', 'confirmExternalTransmission'],
+    properties: {
+      state: {
+        description: 'The text or JSON object Jev should evaluate.',
+      },
+      questions: {
+        type: 'object',
+        minProperties: 1,
+        description: 'Named Jev questions using noul, choice, or score types.',
+        additionalProperties: {
+          type: 'object',
+          required: ['type', 'instructions'],
+          properties: {
+            type: { type: 'string', enum: ['noul', 'choice', 'score'] },
+            instructions: { type: 'string', minLength: 1 },
+            criteria: {},
+          },
+        },
+      },
+      confirmExternalTransmission: {
+        type: 'boolean',
+        description:
+          'Must be true only after the user has authorised sending this state to the configured external Jev provider.',
+      },
+      model: { type: 'string' },
+    },
+  },
+};
+
+let cachedCloudflareAuth;
+
+async function wranglerJson(args) {
+  const command = process.env.FAST_JEV_WRANGLER_COMMAND || 'npx';
+  const prefix = command.endsWith('wrangler') ? [] : ['--yes', 'wrangler'];
+  const { stdout } = await execFileAsync(command, [...prefix, ...args, '--json'], {
+    timeout: 30_000,
+    maxBuffer: 1024 * 1024,
+  });
+  return JSON.parse(stdout);
+}
+
+async function resolveCloudflareAuth() {
+  if (cachedCloudflareAuth) return cachedCloudflareAuth;
+  let apiKey = process.env.CLOUDFLARE_API_TOKEN;
+  let accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  if (!apiKey) {
+    const auth = await wranglerJson(['auth', 'token']);
+    if (typeof auth.token === 'string' && auth.token) apiKey = auth.token;
+  }
+  if (!accountId) {
+    const identity = await wranglerJson(['whoami']);
+    const accounts = Array.isArray(identity.accounts) ? identity.accounts : [];
+    if (accounts.length === 1 && typeof accounts[0]?.id === 'string') {
+      accountId = accounts[0].id;
+    } else if (accounts.length > 1) {
+      throw new Error('CLOUDFLARE_ACCOUNT_ID is required when Wrangler has multiple accounts');
+    }
+  }
+  if (!apiKey) throw new Error('Cloudflare authentication is unavailable');
+  if (!accountId) throw new Error('CLOUDFLARE_ACCOUNT_ID is not configured');
+  cachedCloudflareAuth = { apiKey, accountId };
+  return cachedCloudflareAuth;
+}
+
+async function createClient(model) {
+  const provider = process.env.FAST_JEV_PROVIDER || 'cloudflare';
+  if (provider === 'typesafe') {
+    if (!process.env.TYPESAFE_API_KEY) throw new Error('TYPESAFE_API_KEY is not configured');
+    return new JevClient({
+      provider,
+      model,
+      baseUrl: process.env.FAST_JEV_BASE_URL,
+    });
+  }
+  if (provider !== 'cloudflare') throw new Error(`Unsupported FAST_JEV_PROVIDER: ${provider}`);
+  const auth = await resolveCloudflareAuth();
+  return new JevClient({
+    provider,
+    apiKey: auth.apiKey,
+    accountId: auth.accountId,
+    model,
+    baseUrl: process.env.FAST_JEV_BASE_URL,
+  });
+}
 
 let input = Buffer.alloc(0);
 
@@ -86,17 +182,26 @@ function assertMessages(messages) {
   }
 }
 
-async function callTool(argumentsValue) {
+async function callTool(name, argumentsValue) {
   if (!argumentsValue || typeof argumentsValue !== 'object') {
     throw new Error('tool arguments are required');
   }
   if (argumentsValue.confirmExternalTransmission !== true) {
     throw new Error(
-      'set confirmExternalTransmission=true only after the user authorises sending this transcript to TypeSafe Jev',
+      'set confirmExternalTransmission=true only after the user authorises sending this data to the configured external Jev provider',
     );
   }
-  if (!process.env.TYPESAFE_API_KEY) {
-    throw new Error('TYPESAFE_API_KEY is not configured');
+  const client = await createClient(argumentsValue.model);
+  if (name === EVALUATE_TOOL_NAME) {
+    if (argumentsValue.state === undefined) throw new Error('state is required');
+    if (
+      !argumentsValue.questions ||
+      typeof argumentsValue.questions !== 'object' ||
+      Array.isArray(argumentsValue.questions)
+    ) {
+      throw new Error('questions must be an object');
+    }
+    return client.ask(argumentsValue.state, argumentsValue.questions);
   }
   assertMessages(argumentsValue.messages);
 
@@ -111,10 +216,6 @@ async function callTool(argumentsValue) {
   ]) {
     if (argumentsValue[key] !== undefined) options[key] = argumentsValue[key];
   }
-  const client = new JevClient({
-    model: argumentsValue.model,
-    baseUrl: process.env.FAST_JEV_BASE_URL,
-  });
   return compact(argumentsValue.messages, client, options);
 }
 
@@ -138,16 +239,16 @@ async function handle(message) {
     return;
   }
   if (method === 'tools/list') {
-    sendResult(id, { tools: [toolDefinition] });
+    sendResult(id, { tools: [evaluateToolDefinition, compactToolDefinition] });
     return;
   }
   if (method === 'tools/call') {
-    if (params.name !== TOOL_NAME) {
+    if (params.name !== COMPACT_TOOL_NAME && params.name !== EVALUATE_TOOL_NAME) {
       sendError(id, -32602, `unknown tool: ${String(params.name)}`);
       return;
     }
     try {
-      const result = await callTool(params.arguments);
+      const result = await callTool(params.name, params.arguments);
       const text = JSON.stringify(result);
       sendResult(id, {
         content: [{ type: 'text', text }],
