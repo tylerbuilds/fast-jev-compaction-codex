@@ -1,7 +1,7 @@
 {
   "name": "fast-jev-compaction-codex",
   "version": "0.3.0+codex.20260919184506",
-  "description": "Cloudflare-hosted Jev evaluation and verbatim transcript compaction for Codex workflows.",
+  "description": "TypeSafe Jev evaluation and verbatim transcript compaction for Codex workflows.",
   "author": {
     "name": "Tylerbuilds",
     "url": "https://github.com/tylerbuilds"
@@ -21,8 +21,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Fast Jev Compaction",
-    "shortDescription": "Structured Jev evaluation and safe transcript compaction through Cloudflare",
-    "longDescription": "Use Cloudflare-hosted Jev for typed workflow judgements and to score tool calls and tool results in a supplied transcript. User and assistant text remains verbatim; stale calls can be removed and stale results can be truncated. The plugin uses existing Wrangler authentication when explicit Cloudflare credentials are absent.",
+    "shortDescription": "Structured Jev evaluation and safe transcript compaction through TypeSafe",
+    "longDescription": "Use TypeSafe Jev for typed workflow judgements and to score tool calls and tool results in a supplied transcript. User and assistant text remains verbatim; stale calls can be removed and stale results can be truncated. On macOS, the plugin can read its API key from the login Keychain without putting the credential in plugin files.",
     "developerName": "Tylerbuilds",
     "category": "Developer Tools",
     "capabilities": [

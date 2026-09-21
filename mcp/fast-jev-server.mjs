@@ -111,7 +111,7 @@ async function resolveCloudflareAuth() {
 }
 
 async function createClient(model) {
-  const provider = process.env.FAST_JEV_PROVIDER || 'cloudflare';
+  const provider = process.env.FAST_JEV_PROVIDER || 'typesafe';
   if (provider === 'typesafe') {
     if (!process.env.TYPESAFE_API_KEY) throw new Error('TYPESAFE_API_KEY is not configured');
     return new JevClient({

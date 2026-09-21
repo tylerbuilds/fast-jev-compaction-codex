@@ -7,9 +7,9 @@ library, a Claude Code plugin, and a Codex plugin.
 
 The `tylerbuilds/fast-jev-compaction-codex` fork adds a Codex personal plugin
 manifest, discoverable skills, the general `jev_evaluate` MCP tool, and the
-`fast_jev_compaction_compact` MCP tool. Both use Cloudflare Workers AI by
-default and can reuse an existing Wrangler login without storing another API
-key.
+`fast_jev_compaction_compact` MCP tool. Both use the direct TypeSafe API by
+default. On macOS, the Codex launcher can read the API key from the login
+Keychain so it is not stored in the repository or plugin configuration.
 Codex currently does not expose a supported hook for replacing its private
 automatic compaction path, so the Codex surface compacts a transcript supplied
 explicitly by the workflow and does not pretend to intercept host compaction.
@@ -113,7 +113,7 @@ can instead read the current Wrangler OAuth session in memory.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `provider` | `typesafe` | `typesafe` or `cloudflare`; the Codex MCP server defaults to `cloudflare` |
+| `provider` | `typesafe` | `typesafe` or `cloudflare`; the Codex MCP server also defaults to `typesafe` |
 | `apiKey` | provider environment variable | `TYPESAFE_API_KEY` or `CLOUDFLARE_API_TOKEN` |
 | `accountId` | `CLOUDFLARE_ACCOUNT_ID` | Required by the Cloudflare REST API |
 | `model` | provider default | `jev-latest` or `typesafe/jev` |
@@ -185,10 +185,11 @@ The fork is installable as a local Codex personal plugin. Its MCP server exposes
 the library and returns compacted messages, Jev decisions, and reduction
 statistics.
 
-The server defaults to Cloudflare Workers AI and uses `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` when supplied. Otherwise it obtains the current token
-and account from `wrangler auth token --json` and `wrangler whoami --json` in
-memory. Set `FAST_JEV_PROVIDER=typesafe` to retain the direct TypeSafe route.
+The server defaults to the direct TypeSafe API. It reads `TYPESAFE_API_KEY` from
+the environment, or the macOS launcher reads the `ai.typesafe.fast-jev` generic
+password from the current user's login Keychain. Cloudflare remains available
+as an explicit library/server override with `FAST_JEV_PROVIDER=cloudflare` and
+the existing Cloudflare authentication options.
 Every tool call requires `confirmExternalTransmission: true`; never send
 credentials, tokens, cookies, or other sensitive material without specific
 approval. Credentials are never accepted as tool arguments.
