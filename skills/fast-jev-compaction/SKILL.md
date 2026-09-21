@@ -10,14 +10,14 @@ scores each non-pinned tool call and result, keeps useful material verbatim,
 truncates results that are still useful only as a trace, and removes calls that
 no longer matter. User and assistant text is not rewritten by the compactor.
 
-This plugin sends the transcript's task text and tool inputs to Jev through
-Cloudflare Workers AI by default. Before calling the tool, make sure the user
+This plugin sends the transcript's task text and tool inputs to the direct
+TypeSafe API by default. Before calling the tool, make sure the user
 has authorised sending that transcript to the external service and set
 `confirmExternalTransmission: true`. Do not pass credentials, tokens, cookies,
 or other sensitive material unless the user has explicitly approved that
-specific transmission. Authentication comes from explicit Cloudflare
-environment variables or the existing Wrangler login; never put credentials in
-a prompt, transcript, file, or tool argument.
+specific transmission. Authentication comes from `TYPESAFE_API_KEY` or the
+configured macOS Keychain item; never put credentials in a prompt, transcript,
+file, or tool argument.
 
 Pass the transcript as the `messages` array using the library's message shape:
 `role`, `text`, `toolUses`, and optional `toolResults`. Keep the original
